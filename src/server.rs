@@ -10,8 +10,8 @@ use rmcp::{
 
 use crate::jira::{JiraClient, UpdateIssueRequest};
 use crate::tools::{
-    format_comment, format_issue, format_search_result, format_update_result,
-    AddCommentParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
+    format_comment, format_epics, format_issue, format_search_result, format_update_result,
+    AddCommentParams, GetEpicsParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
 };
 
 #[derive(Clone)]
@@ -81,6 +81,25 @@ impl JiraServer {
             }
             Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
                 "Failed to add comment: {}",
+                e
+            ))])),
+        }
+    }
+
+    #[tool(description = "Get all epics in a Jira project. Returns a list of epic issues with their key, status, and summary.")]
+    async fn get_epics(
+        &self,
+        Parameters(params): Parameters<GetEpicsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let max_results = params.max_results.unwrap_or(50).min(100);
+
+        match self.jira.get_epics(&params.project_key, max_results).await {
+            Ok(result) => {
+                let output = format_epics(&params.project_key, &result);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to get epics: {}",
                 e
             ))])),
         }

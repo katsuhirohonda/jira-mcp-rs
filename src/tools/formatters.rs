@@ -15,6 +15,12 @@ pub fn format_search_result(result: &SearchResult) -> String {
             .as_ref()
             .map(|s| s.name.as_str())
             .unwrap_or("Unknown");
+        let issue_type = issue
+            .fields
+            .issue_type
+            .as_ref()
+            .map(|t| t.name.as_str())
+            .unwrap_or("Unknown");
         let summary = issue
             .fields
             .summary
@@ -28,8 +34,8 @@ pub fn format_search_result(result: &SearchResult) -> String {
             .unwrap_or("Unassigned".to_string());
 
         output.push_str(&format!(
-            "- **{}** [{}] {}\n  Assignee: {}\n\n",
-            issue.key, status, summary, assignee
+            "- **{}** [{}/{}] {}\n  Assignee: {}\n\n",
+            issue.key, issue_type, status, summary, assignee
         ));
     }
 
@@ -60,12 +66,19 @@ pub fn format_issue(issue: &Issue) -> String {
         .as_ref()
         .map(|p| p.name.as_str())
         .unwrap_or("None");
+    let issue_type = issue
+        .fields
+        .issue_type
+        .as_ref()
+        .map(|t| t.name.as_str())
+        .unwrap_or("Unknown");
     let created = issue.fields.created.as_deref().unwrap_or("Unknown");
     let updated = issue.fields.updated.as_deref().unwrap_or("Unknown");
 
     let mut output = format!(
         r#"# {} - {}
 
+**Type:** {}
 **Status:** {}
 **Assignee:** {}
 **Priority:** {}
@@ -73,7 +86,7 @@ pub fn format_issue(issue: &Issue) -> String {
 **Updated:** {}
 **URL:** {}
 "#,
-        issue.key, summary, status, assignee, priority, created, updated, issue.self_url
+        issue.key, summary, issue_type, status, assignee, priority, created, updated, issue.self_url
     );
 
     if let Some(comment_list) = &issue.fields.comment {
@@ -130,6 +143,35 @@ pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
     )
 }
 
+pub fn format_epics(project_key: &str, result: &SearchResult) -> String {
+    if result.issues.is_empty() {
+        return format!("No epics found in project {}", project_key);
+    }
+
+    let mut output = format!(
+        "Found {} epic(s) in project {}:\n\n",
+        result.total, project_key
+    );
+
+    for issue in &result.issues {
+        let status = issue
+            .fields
+            .status
+            .as_ref()
+            .map(|s| s.name.as_str())
+            .unwrap_or("Unknown");
+        let summary = issue
+            .fields
+            .summary
+            .as_deref()
+            .unwrap_or("No summary");
+
+        output.push_str(&format!("- **{}** [{}] {}\n", issue.key, status, summary));
+    }
+
+    output
+}
+
 pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String {
     if updated_fields.is_empty() {
         return format!("No fields were updated for {}", issue_key);
@@ -145,7 +187,7 @@ pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jira::{IssueFields, Priority, Status, User};
+    use crate::jira::{IssueFields, IssueType, Priority, Status, User};
 
     fn create_test_issue(key: &str, summary: &str, status: &str, assignee: &str) -> Issue {
         Issue {
@@ -169,6 +211,10 @@ mod tests {
                 updated: Some("2024-01-16T14:30:00.000+0000".to_string()),
                 description: None,
                 comment: None,
+                issue_type: Some(IssueType {
+                    name: "Story".to_string(),
+                    subtask: false,
+                }),
             },
         }
     }
@@ -190,11 +236,11 @@ mod tests {
         assert!(output.contains("Found 2 issues"));
         assert!(output.contains("PROJ-1"));
         assert!(output.contains("First issue"));
-        assert!(output.contains("[Open]"));
+        assert!(output.contains("[Story/Open]"));
         assert!(output.contains("Alice"));
         assert!(output.contains("PROJ-2"));
         assert!(output.contains("Second issue"));
-        assert!(output.contains("[In Progress]"));
+        assert!(output.contains("[Story/In Progress]"));
         assert!(output.contains("Bob"));
     }
 
@@ -229,6 +275,7 @@ mod tests {
 
                 description: None,
                 comment: None,
+                issue_type: None,
             },
         };
         let result = SearchResult {
@@ -241,7 +288,7 @@ mod tests {
         let output = format_search_result(&result);
 
         assert!(output.contains("PROJ-1"));
-        assert!(output.contains("[Unknown]"));
+        assert!(output.contains("[Unknown/Unknown]"));
         assert!(output.contains("No summary"));
         assert!(output.contains("Unassigned"));
     }
@@ -278,6 +325,7 @@ mod tests {
                 updated: None,
                 description: None,
                 comment: None,
+                issue_type: None,
             },
         };
 
@@ -331,5 +379,42 @@ mod tests {
         assert!(output.contains("**Comment ID:** 10101"));
         assert!(output.contains("**Author:** Unknown"));
         assert!(output.contains("**Created:** Unknown"));
+    }
+
+    #[test]
+    fn format_epics_shows_epic_list() {
+        let result = SearchResult {
+            total: 2,
+            max_results: 50,
+            start_at: 0,
+            issues: vec![
+                create_test_issue("PROJ-100", "Epic: User Authentication", "In Progress", "Alice"),
+                create_test_issue("PROJ-101", "Epic: Payment Integration", "Done", "Bob"),
+            ],
+        };
+
+        let output = format_epics("PROJ", &result);
+
+        assert!(output.contains("Found 2 epic(s) in project PROJ"));
+        assert!(output.contains("PROJ-100"));
+        assert!(output.contains("[In Progress]"));
+        assert!(output.contains("Epic: User Authentication"));
+        assert!(output.contains("PROJ-101"));
+        assert!(output.contains("[Done]"));
+        assert!(output.contains("Epic: Payment Integration"));
+    }
+
+    #[test]
+    fn format_epics_handles_empty_results() {
+        let result = SearchResult {
+            total: 0,
+            max_results: 50,
+            start_at: 0,
+            issues: vec![],
+        };
+
+        let output = format_epics("EMPTY", &result);
+
+        assert!(output.contains("No epics found in project EMPTY"));
     }
 }

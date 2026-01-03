@@ -39,3 +39,11 @@ pub struct UpdateIssueParams {
     /// Labels to set on the issue
     pub labels: Option<Vec<String>>,
 }
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetEpicsParams {
+    /// The project key (e.g., 'PROJ')
+    pub project_key: String,
+    /// Maximum number of results to return (default: 50, max: 100)
+    pub max_results: Option<u32>,
+}

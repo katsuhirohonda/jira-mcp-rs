@@ -33,10 +33,18 @@ pub struct IssueFields {
     pub status: Option<Status>,
     pub assignee: Option<User>,
     pub priority: Option<Priority>,
+    #[serde(rename = "issuetype")]
+    pub issue_type: Option<IssueType>,
     pub created: Option<String>,
     pub updated: Option<String>,
     pub description: Option<serde_json::Value>,
     pub comment: Option<CommentList>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct IssueType {
+    pub name: String,
+    pub subtask: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -75,12 +83,22 @@ pub struct CommentBody {
     #[serde(rename = "type")]
     pub doc_type: String,
     pub version: u32,
-    pub content: Vec<serde_json::Value>,
+    pub content: Vec<CommentParagraph>,
 }
 
-// CommentParagraph and CommentText structs are no longer needed for deserialization
-// as we use serde_json::Value to handle dynamic ADF content.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CommentParagraph {
+    #[serde(rename = "type")]
+    pub paragraph_type: String,
+    pub content: Vec<CommentText>,
+}
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CommentText {
+    #[serde(rename = "type")]
+    pub text_type: String,
+    pub text: String,
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Comment {
