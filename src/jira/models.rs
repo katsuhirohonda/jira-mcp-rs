@@ -38,20 +38,12 @@ pub struct IssueFields {
     pub created: Option<String>,
     pub updated: Option<String>,
     pub description: Option<serde_json::Value>,
-    pub comment: Option<CommentList>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct IssueType {
     pub name: String,
     pub subtask: bool,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CommentList {
-    pub comments: Vec<Comment>,
-    pub total: u32,
 }
 
 /// Response from GET /rest/api/2/issue/{issueIdOrKey}/comment
