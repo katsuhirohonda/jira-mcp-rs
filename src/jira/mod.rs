@@ -1,7 +1,10 @@
+mod models;
+
+pub use models::*;
+
 use anyhow::Result;
-use base64::{Engine, engine::general_purpose::STANDARD};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 
 #[derive(Clone)]
 pub struct JiraClient {
@@ -115,96 +118,6 @@ impl JiraClient {
     }
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchRequest {
-    jql: String,
-    max_results: u32,
-    fields: Vec<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SearchResult {
-    pub total: u32,
-    pub max_results: u32,
-    pub start_at: u32,
-    pub issues: Vec<Issue>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Issue {
-    pub id: String,
-    pub key: String,
-    #[serde(rename = "self")]
-    pub self_url: String,
-    pub fields: IssueFields,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct IssueFields {
-    pub summary: Option<String>,
-    pub status: Option<Status>,
-    pub assignee: Option<User>,
-    pub priority: Option<Priority>,
-    pub created: Option<String>,
-    pub updated: Option<String>,
-    pub description: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Status {
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct User {
-    pub display_name: String,
-    pub email_address: Option<String>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Priority {
-    pub name: String,
-}
-
-#[derive(Debug, Serialize)]
-struct AddCommentRequest {
-    body: CommentBody,
-}
-
-#[derive(Debug, Serialize)]
-struct CommentBody {
-    #[serde(rename = "type")]
-    doc_type: String,
-    version: u32,
-    content: Vec<CommentParagraph>,
-}
-
-#[derive(Debug, Serialize)]
-struct CommentParagraph {
-    #[serde(rename = "type")]
-    paragraph_type: String,
-    content: Vec<CommentText>,
-}
-
-#[derive(Debug, Serialize)]
-struct CommentText {
-    #[serde(rename = "type")]
-    text_type: String,
-    text: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Comment {
-    pub id: String,
-    #[serde(rename = "self")]
-    pub self_url: String,
-    pub author: Option<User>,
-    pub created: Option<String>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,7 +150,6 @@ mod tests {
 
     #[tokio::test]
     async fn search_issues_returns_matching_issues() {
-        // Given: a mock Jira server with issues
         let mock_server = MockServer::start().await;
         let expected_issue = create_test_issue("PROJ-123", "Fix login bug", "Open");
         let response_body = SearchResult {
@@ -249,17 +161,18 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/rest/api/3/search/jql"))
-            .and(header("Authorization", "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
             .mount(&mock_server)
             .await;
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: searching for issues
         let result = client.search_issues("project = PROJ", 50).await.unwrap();
 
-        // Then: the matching issues are returned
         assert_eq!(result.total, 1);
         assert_eq!(result.issues.len(), 1);
         assert_eq!(result.issues[0].key, "PROJ-123");
@@ -271,7 +184,6 @@ mod tests {
 
     #[tokio::test]
     async fn search_issues_returns_empty_when_no_matches() {
-        // Given: a mock server returning no issues
         let mock_server = MockServer::start().await;
         let response_body = SearchResult {
             total: 0,
@@ -288,17 +200,14 @@ mod tests {
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: searching with no matches
         let result = client.search_issues("project = EMPTY", 50).await.unwrap();
 
-        // Then: an empty result is returned
         assert_eq!(result.total, 0);
         assert!(result.issues.is_empty());
     }
 
     #[tokio::test]
     async fn search_issues_returns_error_on_api_failure() {
-        // Given: a mock server returning an error
         let mock_server = MockServer::start().await;
 
         Mock::given(method("POST"))
@@ -309,10 +218,8 @@ mod tests {
 
         let client = JiraClient::new(&mock_server.uri(), "bad@example.com", "invalid-token");
 
-        // When: searching with invalid credentials
         let result = client.search_issues("project = PROJ", 50).await;
 
-        // Then: an error is returned
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
         assert!(error_message.contains("401"));
@@ -320,23 +227,23 @@ mod tests {
 
     #[tokio::test]
     async fn get_issue_returns_issue_details() {
-        // Given: a mock server with a specific issue
         let mock_server = MockServer::start().await;
         let expected_issue = create_test_issue("PROJ-456", "Implement feature X", "In Progress");
 
         Mock::given(method("GET"))
             .and(path("/rest/api/3/issue/PROJ-456"))
-            .and(header("Authorization", "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
             .respond_with(ResponseTemplate::new(200).set_body_json(&expected_issue))
             .mount(&mock_server)
             .await;
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: getting a specific issue
         let issue = client.get_issue("PROJ-456").await.unwrap();
 
-        // Then: the issue details are returned
         assert_eq!(issue.key, "PROJ-456");
         assert_eq!(
             issue.fields.summary.as_deref(),
@@ -350,7 +257,6 @@ mod tests {
 
     #[tokio::test]
     async fn get_issue_returns_error_when_not_found() {
-        // Given: a mock server returning 404
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
@@ -361,10 +267,8 @@ mod tests {
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: getting a non-existent issue
         let result = client.get_issue("PROJ-999").await;
 
-        // Then: an error is returned
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
         assert!(error_message.contains("404"));
@@ -372,7 +276,6 @@ mod tests {
 
     #[tokio::test]
     async fn add_comment_creates_comment_on_issue() {
-        // Given: a mock server accepting comment creation
         let mock_server = MockServer::start().await;
         let response_body = Comment {
             id: "10100".to_string(),
@@ -397,13 +300,11 @@ mod tests {
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: adding a comment
         let comment = client
             .add_comment("PROJ-123", "This is a test comment")
             .await
             .unwrap();
 
-        // Then: the created comment is returned
         assert_eq!(comment.id, "10100");
         assert_eq!(
             comment.author.as_ref().map(|a| a.display_name.as_str()),
@@ -413,7 +314,6 @@ mod tests {
 
     #[tokio::test]
     async fn add_comment_returns_error_when_issue_not_found() {
-        // Given: a mock server returning 404
         let mock_server = MockServer::start().await;
 
         Mock::given(method("POST"))
@@ -424,10 +324,8 @@ mod tests {
 
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
-        // When: adding a comment to a non-existent issue
         let result = client.add_comment("PROJ-999", "Test comment").await;
 
-        // Then: an error is returned
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
         assert!(error_message.contains("404"));
@@ -435,28 +333,23 @@ mod tests {
 
     #[test]
     fn client_trims_trailing_slash_from_base_url() {
-        // Given: a base URL with trailing slash
         let client = JiraClient::new(
             "https://example.atlassian.net/",
             "test@example.com",
             "token",
         );
 
-        // Then: the trailing slash is removed
         assert_eq!(client.base_url, "https://example.atlassian.net");
     }
 
     #[test]
     fn client_generates_correct_auth_header() {
-        // Given: credentials
         let client = JiraClient::new(
             "https://example.atlassian.net",
             "user@example.com",
             "api-token",
         );
 
-        // Then: the auth header is correctly encoded
-        // base64("user@example.com:api-token") = "dXNlckBleGFtcGxlLmNvbTphcGktdG9rZW4="
         assert_eq!(
             client.auth_header,
             "Basic dXNlckBleGFtcGxlLmNvbTphcGktdG9rZW4="
