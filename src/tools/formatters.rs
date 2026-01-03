@@ -63,7 +63,7 @@ pub fn format_issue(issue: &Issue) -> String {
     let created = issue.fields.created.as_deref().unwrap_or("Unknown");
     let updated = issue.fields.updated.as_deref().unwrap_or("Unknown");
 
-    format!(
+    let mut output = format!(
         r#"# {} - {}
 
 **Status:** {}
@@ -74,7 +74,41 @@ pub fn format_issue(issue: &Issue) -> String {
 **URL:** {}
 "#,
         issue.key, summary, status, assignee, priority, created, updated, issue.self_url
-    )
+    );
+
+    if let Some(comment_list) = &issue.fields.comment {
+        if !comment_list.comments.is_empty() {
+            output.push_str("\n## Comments\n\n");
+            for comment in &comment_list.comments {
+                let author = comment
+                    .author
+                    .as_ref()
+                    .map(|a| a.display_name.as_str())
+                    .unwrap_or("Unknown");
+                let created = comment.created.as_deref().unwrap_or("Unknown");
+                
+                let mut body_text = String::new();
+                if let Some(body) = &comment.body {
+                    for paragraph in &body.content {
+                        for text_node in &paragraph.content {
+                            body_text.push_str(&text_node.text);
+                        }
+                        body_text.push('\n');
+                    }
+                }
+                if body_text.is_empty() {
+                    body_text = "No content".to_string();
+                }
+
+                output.push_str(&format!(
+                    "### Comment by {} ({})\n{}\n\n",
+                    author, created, body_text.trim()
+                ));
+            }
+        }
+    }
+    
+    output
 }
 
 pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
@@ -121,6 +155,7 @@ mod tests {
                 created: Some("2024-01-15T10:00:00.000+0000".to_string()),
                 updated: Some("2024-01-16T14:30:00.000+0000".to_string()),
                 description: None,
+                comment: None,
             },
         }
     }
@@ -178,7 +213,9 @@ mod tests {
                 priority: None,
                 created: None,
                 updated: None,
+
                 description: None,
+                comment: None,
             },
         };
         let result = SearchResult {
@@ -227,6 +264,7 @@ mod tests {
                 created: None,
                 updated: None,
                 description: None,
+                comment: None,
             },
         };
 
@@ -251,6 +289,7 @@ mod tests {
                 email_address: Some("dev@example.com".to_string()),
             }),
             created: Some("2024-01-17T09:00:00.000+0000".to_string()),
+            body: None,
         };
 
         let output = format_comment("PROJ-123", &comment);
@@ -269,6 +308,7 @@ mod tests {
                 .to_string(),
             author: None,
             created: None,
+            body: None,
         };
 
         let output = format_comment("PROJ-456", &comment);

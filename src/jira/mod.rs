@@ -144,6 +144,7 @@ mod tests {
                 created: Some("2024-01-15T10:00:00.000+0000".to_string()),
                 updated: Some("2024-01-16T14:30:00.000+0000".to_string()),
                 description: None,
+                comment: None,
             },
         }
     }
@@ -286,6 +287,7 @@ mod tests {
                 email_address: Some("test@example.com".to_string()),
             }),
             created: Some("2024-01-17T09:00:00.000+0000".to_string()),
+            body: None,
         };
 
         Mock::given(method("POST"))

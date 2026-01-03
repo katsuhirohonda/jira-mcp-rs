@@ -35,6 +35,14 @@ pub struct IssueFields {
     pub created: Option<String>,
     pub updated: Option<String>,
     pub description: Option<serde_json::Value>,
+    pub comment: Option<CommentList>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentList {
+    pub comments: Vec<Comment>,
+    pub total: u32,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -54,12 +62,12 @@ pub struct Priority {
     pub name: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct AddCommentRequest {
     pub body: CommentBody,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CommentBody {
     #[serde(rename = "type")]
     pub doc_type: String,
@@ -67,14 +75,14 @@ pub struct CommentBody {
     pub content: Vec<CommentParagraph>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CommentParagraph {
     #[serde(rename = "type")]
     pub paragraph_type: String,
     pub content: Vec<CommentText>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CommentText {
     #[serde(rename = "type")]
     pub text_type: String,
@@ -88,4 +96,5 @@ pub struct Comment {
     pub self_url: String,
     pub author: Option<User>,
     pub created: Option<String>,
+    pub body: Option<CommentBody>,
 }
