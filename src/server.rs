@@ -10,8 +10,9 @@ use rmcp::{
 
 use crate::jira::{JiraClient, UpdateIssueRequest};
 use crate::tools::{
-    format_comment, format_comments, format_issue, format_search_result, format_update_result,
-    AddCommentParams, GetCommentsParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
+    format_children, format_comment, format_comments, format_issue, format_search_result,
+    format_update_result, AddCommentParams, GetChildrenParams, GetCommentsParams, GetIssueParams,
+    SearchIssuesParams, UpdateIssueParams,
 };
 
 #[derive(Clone)]
@@ -81,6 +82,25 @@ impl JiraServer {
             }
             Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
                 "Failed to add comment: {}",
+                e
+            ))])),
+        }
+    }
+
+    #[tool(description = "Get child issues of a parent issue. Works for both epics (returns stories/tasks) and regular issues (returns subtasks).")]
+    async fn get_children(
+        &self,
+        Parameters(params): Parameters<GetChildrenParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let max_results = params.max_results.unwrap_or(50).min(100);
+
+        match self.jira.get_children(&params.parent_key, max_results).await {
+            Ok(result) => {
+                let output = format_children(&params.parent_key, &result);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to get children: {}",
                 e
             ))])),
         }

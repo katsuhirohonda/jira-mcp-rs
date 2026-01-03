@@ -114,6 +114,23 @@ impl JiraClient {
         Ok(())
     }
 
+    /// Get child issues of a parent issue (epic's stories or issue's subtasks).
+    ///
+    /// Uses `parent = 'KEY'` JQL which works for both epics and regular issues.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Get stories under an epic
+    /// let children = client.get_children("EPIC-123", 50).await?;
+    ///
+    /// // Get subtasks under a story
+    /// let subtasks = client.get_children("STORY-456", 50).await?;
+    /// ```
+    pub async fn get_children(&self, parent_key: &str, max_results: u32) -> Result<SearchResult> {
+        let jql = format!("parent = '{}' ORDER BY created ASC", parent_key);
+        self.search_issues(&jql, max_results).await
+    }
+
     /// Get comments for an issue.
     ///
     /// Uses the dedicated comment endpoint for better pagination support.

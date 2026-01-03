@@ -109,6 +109,50 @@ pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
     )
 }
 
+pub fn format_children(parent_key: &str, result: &SearchResult) -> String {
+    if result.issues.is_empty() {
+        return format!("No child issues found for {}", parent_key);
+    }
+
+    let mut output = format!(
+        "Found {} child issue(s) for {}:\n\n",
+        result.total, parent_key
+    );
+
+    for issue in &result.issues {
+        let status = issue
+            .fields
+            .status
+            .as_ref()
+            .map(|s| s.name.as_str())
+            .unwrap_or("Unknown");
+        let issue_type = issue
+            .fields
+            .issue_type
+            .as_ref()
+            .map(|t| t.name.as_str())
+            .unwrap_or("Unknown");
+        let summary = issue
+            .fields
+            .summary
+            .as_deref()
+            .unwrap_or("No summary");
+        let assignee = issue
+            .fields
+            .assignee
+            .as_ref()
+            .map(|a| a.display_name.as_str())
+            .unwrap_or("Unassigned");
+
+        output.push_str(&format!(
+            "- **{}** [{}/{}] {}\n  Assignee: {}\n\n",
+            issue.key, issue_type, status, summary, assignee
+        ));
+    }
+
+    output
+}
+
 pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String {
     if updated_fields.is_empty() {
         return format!("No fields were updated for {}", issue_key);

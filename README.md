@@ -6,6 +6,8 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 
 - **search_issues**: Search for Jira issues using JQL (Jira Query Language)
 - **get_issue**: Get detailed information about a specific Jira issue
+- **get_children**: Get child issues (epic's stories or issue's subtasks)
+- **get_comments**: Get comments on a Jira issue
 - **add_comment**: Add a comment to a Jira issue
 - **update_issue**: Update issue fields (summary, due date, priority, assignee, parent/epic, labels)
 
@@ -63,6 +65,23 @@ Get detailed information about a specific issue.
 
 **Parameters:**
 - `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
+
+### get_children
+
+Get child issues of a parent issue. Works for both epics (returns stories/tasks) and regular issues (returns subtasks).
+
+**Parameters:**
+- `parent_key` (string, required): The parent issue key (e.g., `EPIC-123` or `STORY-456`)
+- `max_results` (number, optional): Maximum number of results (default: 50, max: 100)
+
+### get_comments
+
+Get comments on a Jira issue with pagination support.
+
+**Parameters:**
+- `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
+- `start_at` (number, optional): Starting index for pagination (default: 0)
+- `max_results` (number, optional): Maximum number of comments to return (default: 50, max: 100)
 
 ### add_comment
 
