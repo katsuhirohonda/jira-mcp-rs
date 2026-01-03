@@ -24,8 +24,8 @@ pub fn format_search_result(result: &SearchResult) -> String {
             .fields
             .assignee
             .as_ref()
-            .map(|a| a.display_name.as_str())
-            .unwrap_or("Unassigned");
+            .map(|a| format!("{} ({})", a.display_name, a.account_id.as_deref().unwrap_or("No ID")))
+            .unwrap_or("Unassigned".to_string());
 
         output.push_str(&format!(
             "- **{}** [{}] {}\n  Assignee: {}\n\n",
@@ -52,8 +52,8 @@ pub fn format_issue(issue: &Issue) -> String {
         .fields
         .assignee
         .as_ref()
-        .map(|a| a.display_name.as_str())
-        .unwrap_or("Unassigned");
+        .map(|a| format!("{} ({})", a.display_name, a.account_id.as_deref().unwrap_or("No ID")))
+        .unwrap_or("Unassigned".to_string());
     let priority = issue
         .fields
         .priority
@@ -83,8 +83,8 @@ pub fn format_issue(issue: &Issue) -> String {
                 let author = comment
                     .author
                     .as_ref()
-                    .map(|a| a.display_name.as_str())
-                    .unwrap_or("Unknown");
+                    .map(|a| format!("{} ({})", a.display_name, a.account_id.as_deref().unwrap_or("No ID")))
+                    .unwrap_or("Unknown".to_string());
                 let created = comment.created.as_deref().unwrap_or("Unknown");
                 
                 let mut body_text = String::new();
@@ -115,8 +115,8 @@ pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
     let author = comment
         .author
         .as_ref()
-        .map(|a| a.display_name.as_str())
-        .unwrap_or("Unknown");
+        .map(|a| format!("{} ({})", a.display_name, a.account_id.as_deref().unwrap_or("No ID")))
+        .unwrap_or("Unknown".to_string());
     let created = comment.created.as_deref().unwrap_or("Unknown");
 
     format!(
@@ -160,6 +160,7 @@ mod tests {
                 assignee: Some(User {
                     display_name: assignee.to_string(),
                     email_address: Some("test@example.com".to_string()),
+                    account_id: Some("account-123".to_string()),
                 }),
                 priority: Some(Priority {
                     name: "High".to_string(),
@@ -299,6 +300,7 @@ mod tests {
             author: Some(User {
                 display_name: "Developer".to_string(),
                 email_address: Some("dev@example.com".to_string()),
+                account_id: Some("account-456".to_string()),
             }),
             created: Some("2024-01-17T09:00:00.000+0000".to_string()),
             body: None,

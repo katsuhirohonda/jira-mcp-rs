@@ -169,6 +169,7 @@ mod tests {
                 assignee: Some(User {
                     display_name: "Test User".to_string(),
                     email_address: Some("test@example.com".to_string()),
+                    account_id: Some("test-account-id".to_string()),
                 }),
                 priority: Some(Priority {
                     name: "Medium".to_string(),
@@ -317,6 +318,7 @@ mod tests {
             author: Some(User {
                 display_name: "Test User".to_string(),
                 email_address: Some("test@example.com".to_string()),
+                account_id: Some("test-account-id".to_string()),
             }),
             created: Some("2024-01-17T09:00:00.000+0000".to_string()),
             body: None,

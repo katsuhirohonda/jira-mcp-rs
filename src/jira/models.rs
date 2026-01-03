@@ -56,6 +56,8 @@ pub struct Status {
 pub struct User {
     pub display_name: String,
     pub email_address: Option<String>,
+    #[serde(rename = "accountId")]
+    pub account_id: Option<String>, // Account ID is optional as some users (like apps) might not have it in the same context, or for backward compatibility
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -73,22 +75,12 @@ pub struct CommentBody {
     #[serde(rename = "type")]
     pub doc_type: String,
     pub version: u32,
-    pub content: Vec<CommentParagraph>,
+    pub content: Vec<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CommentParagraph {
-    #[serde(rename = "type")]
-    pub paragraph_type: String,
-    pub content: Vec<CommentText>,
-}
+// CommentParagraph and CommentText structs are no longer needed for deserialization
+// as we use serde_json::Value to handle dynamic ADF content.
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CommentText {
-    #[serde(rename = "type")]
-    pub text_type: String,
-    pub text: String,
-}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Comment {
