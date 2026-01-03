@@ -1,11 +1,12 @@
 use crate::jira::{Comment, CommentResponse, Issue, SearchResult};
 
 pub fn format_search_result(result: &SearchResult) -> String {
+    let total = result.total.unwrap_or(result.issues.len() as u32);
     let mut output = format!(
         "Found {} issues (showing {} of {}):\n\n",
-        result.total,
+        total,
         result.issues.len(),
-        result.total
+        total
     );
 
     for issue in &result.issues {
@@ -114,9 +115,10 @@ pub fn format_children(parent_key: &str, result: &SearchResult) -> String {
         return format!("No child issues found for {}", parent_key);
     }
 
+    let total = result.total.unwrap_or(result.issues.len() as u32);
     let mut output = format!(
         "Found {} child issue(s) for {}:\n\n",
-        result.total, parent_key
+        total, parent_key
     );
 
     for issue in &result.issues {
@@ -260,9 +262,9 @@ mod tests {
     #[test]
     fn format_search_result_shows_issue_count_and_details() {
         let result = SearchResult {
-            total: 2,
-            max_results: 50,
-            start_at: 0,
+            total: Some(2),
+            max_results: Some(50),
+            start_at: Some(0),
             issues: vec![
                 create_test_issue("PROJ-1", "First issue", "Open", "Alice"),
                 create_test_issue("PROJ-2", "Second issue", "In Progress", "Bob"),
@@ -285,9 +287,9 @@ mod tests {
     #[test]
     fn format_search_result_handles_empty_results() {
         let result = SearchResult {
-            total: 0,
-            max_results: 50,
-            start_at: 0,
+            total: Some(0),
+            max_results: Some(50),
+            start_at: Some(0),
             issues: vec![],
         };
 
@@ -315,9 +317,9 @@ mod tests {
             },
         };
         let result = SearchResult {
-            total: 1,
-            max_results: 50,
-            start_at: 0,
+            total: Some(1),
+            max_results: Some(50),
+            start_at: Some(0),
             issues: vec![issue],
         };
 

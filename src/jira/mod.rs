@@ -253,9 +253,9 @@ mod tests {
         let mock_server = MockServer::start().await;
         let expected_issue = create_test_issue("PROJ-123", "Fix login bug", "Open");
         let response_body = SearchResult {
-            total: 1,
-            max_results: 50,
-            start_at: 0,
+            total: Some(1),
+            max_results: Some(50),
+            start_at: Some(0),
             issues: vec![expected_issue],
         };
 
@@ -273,7 +273,7 @@ mod tests {
 
         let result = client.search_issues("project = PROJ", 50).await.unwrap();
 
-        assert_eq!(result.total, 1);
+        assert_eq!(result.total, Some(1));
         assert_eq!(result.issues.len(), 1);
         assert_eq!(result.issues[0].key, "PROJ-123");
         assert_eq!(
@@ -286,9 +286,9 @@ mod tests {
     async fn search_issues_returns_empty_when_no_matches() {
         let mock_server = MockServer::start().await;
         let response_body = SearchResult {
-            total: 0,
-            max_results: 50,
-            start_at: 0,
+            total: Some(0),
+            max_results: Some(50),
+            start_at: Some(0),
             issues: vec![],
         };
 
@@ -302,7 +302,7 @@ mod tests {
 
         let result = client.search_issues("project = EMPTY", 50).await.unwrap();
 
-        assert_eq!(result.total, 0);
+        assert_eq!(result.total, Some(0));
         assert!(result.issues.is_empty());
     }
 
@@ -633,5 +633,43 @@ mod tests {
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
         assert!(error_message.contains("404"));
+    }
+    #[test]
+    fn test_deserialization_with_missing_fields() {
+        // Simulating a response from search_issues where "fields" are restricted
+        // and "description" is missing.
+        let json = r#"
+        {
+            "total": 1,
+            "maxResults": 50,
+            "startAt": 0,
+            "issues": [
+                {
+                    "id": "10001",
+                    "key": "SMP-2",
+                    "self": "https://example.atlassian.net/rest/api/3/issue/10001",
+                    "fields": {
+                        "summary": "Sample Epic",
+                        "status": { "name": "To Do" },
+                        "issuetype": { "name": "Epic", "subtask": false },
+                        "priority": { "name": "Medium" },
+                        "created": "2024-01-01T12:00:00.000+0000",
+                        "updated": "2024-01-01T12:00:00.000+0000",
+                        "assignee": null
+                    }
+                }
+            ]
+        }
+        "#;
+
+        let result: Result<SearchResult, _> = serde_json::from_str(json);
+        match result {
+            Ok(search_result) => {
+                assert_eq!(search_result.total, Some(1));
+                assert_eq!(search_result.issues[0].key, "SMP-2");
+                assert!(search_result.issues[0].fields.description.is_none());
+            },
+            Err(e) => panic!("Deserialization failed: {}", e),
+        }
     }
 }

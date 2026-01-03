@@ -12,9 +12,9 @@ pub struct SearchRequest {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResult {
-    pub total: u32,
-    pub max_results: u32,
-    pub start_at: u32,
+    pub total: Option<u32>,
+    pub max_results: Option<u32>,
+    pub start_at: Option<u32>,
     pub issues: Vec<Issue>,
 }
 
