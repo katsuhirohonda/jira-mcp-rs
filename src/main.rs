@@ -34,6 +34,14 @@ pub struct GetIssueParams {
     pub issue_key: String,
 }
 
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct AddCommentParams {
+    /// The issue key (e.g., 'PROJ-123')
+    pub issue_key: String,
+    /// The comment text to add to the issue
+    pub comment: String,
+}
+
 #[tool_router]
 impl JiraServer {
     fn new(jira: JiraClient) -> Self {
@@ -78,13 +86,30 @@ impl JiraServer {
             ))])),
         }
     }
+
+    #[tool(description = "Add a comment to a Jira issue. Use this to leave notes, updates, or feedback on an issue.")]
+    async fn add_comment(
+        &self,
+        Parameters(params): Parameters<AddCommentParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match self.jira.add_comment(&params.issue_key, &params.comment).await {
+            Ok(comment) => {
+                let output = format_comment(&params.issue_key, &comment);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to add comment: {}",
+                e
+            ))])),
+        }
+    }
 }
 
 #[tool_handler]
 impl rmcp::ServerHandler for JiraServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
-            instructions: Some("Jira MCP Server - Search and retrieve Jira issues".into()),
+            instructions: Some("Jira MCP Server - Search, retrieve, and comment on Jira issues".into()),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
             ..Default::default()
         }
@@ -125,6 +150,25 @@ fn format_search_result(result: &jira::SearchResult) -> String {
     }
 
     output
+}
+
+fn format_comment(issue_key: &str, comment: &jira::Comment) -> String {
+    let author = comment
+        .author
+        .as_ref()
+        .map(|a| a.display_name.as_str())
+        .unwrap_or("Unknown");
+    let created = comment.created.as_deref().unwrap_or("Unknown");
+
+    format!(
+        r#"Comment added successfully to {}
+
+**Comment ID:** {}
+**Author:** {}
+**Created:** {}
+"#,
+        issue_key, comment.id, author, created
+    )
 }
 
 fn format_issue(issue: &jira::Issue) -> String {
@@ -351,5 +395,50 @@ mod tests {
         assert!(output.contains("**Priority:** None"));
         assert!(output.contains("**Created:** Unknown"));
         assert!(output.contains("**Updated:** Unknown"));
+    }
+
+    #[test]
+    fn format_comment_shows_success_message_with_details() {
+        // Given: a comment with complete information
+        let comment = jira::Comment {
+            id: "10100".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/PROJ-123/comment/10100"
+                .to_string(),
+            author: Some(User {
+                display_name: "Developer".to_string(),
+                email_address: Some("dev@example.com".to_string()),
+            }),
+            created: Some("2024-01-17T09:00:00.000+0000".to_string()),
+        };
+
+        // When: formatting the comment
+        let output = format_comment("PROJ-123", &comment);
+
+        // Then: the success message with details is shown
+        assert!(output.contains("Comment added successfully to PROJ-123"));
+        assert!(output.contains("**Comment ID:** 10100"));
+        assert!(output.contains("**Author:** Developer"));
+        assert!(output.contains("**Created:** 2024-01-17T09:00:00.000+0000"));
+    }
+
+    #[test]
+    fn format_comment_handles_missing_fields() {
+        // Given: a comment with missing optional fields
+        let comment = jira::Comment {
+            id: "10101".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/PROJ-456/comment/10101"
+                .to_string(),
+            author: None,
+            created: None,
+        };
+
+        // When: formatting the comment
+        let output = format_comment("PROJ-456", &comment);
+
+        // Then: default values are shown
+        assert!(output.contains("Comment added successfully to PROJ-456"));
+        assert!(output.contains("**Comment ID:** 10101"));
+        assert!(output.contains("**Author:** Unknown"));
+        assert!(output.contains("**Created:** Unknown"));
     }
 }

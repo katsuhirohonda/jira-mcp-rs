@@ -77,6 +77,42 @@ impl JiraClient {
         let issue = response.json::<Issue>().await?;
         Ok(issue)
     }
+
+    pub async fn add_comment(&self, issue_key: &str, comment: &str) -> Result<Comment> {
+        let url = format!("{}/rest/api/3/issue/{}/comment", self.base_url, issue_key);
+
+        let request_body = AddCommentRequest {
+            body: CommentBody {
+                doc_type: "doc".to_string(),
+                version: 1,
+                content: vec![CommentParagraph {
+                    paragraph_type: "paragraph".to_string(),
+                    content: vec![CommentText {
+                        text_type: "text".to_string(),
+                        text: comment.to_string(),
+                    }],
+                }],
+            },
+        };
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            anyhow::bail!("Jira API error ({}): {}", status, error_text);
+        }
+
+        let comment = response.json::<Comment>().await?;
+        Ok(comment)
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -131,6 +167,42 @@ pub struct User {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Priority {
     pub name: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AddCommentRequest {
+    body: CommentBody,
+}
+
+#[derive(Debug, Serialize)]
+struct CommentBody {
+    #[serde(rename = "type")]
+    doc_type: String,
+    version: u32,
+    content: Vec<CommentParagraph>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommentParagraph {
+    #[serde(rename = "type")]
+    paragraph_type: String,
+    content: Vec<CommentText>,
+}
+
+#[derive(Debug, Serialize)]
+struct CommentText {
+    #[serde(rename = "type")]
+    text_type: String,
+    text: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Comment {
+    pub id: String,
+    #[serde(rename = "self")]
+    pub self_url: String,
+    pub author: Option<User>,
+    pub created: Option<String>,
 }
 
 #[cfg(test)]
@@ -291,6 +363,69 @@ mod tests {
 
         // When: getting a non-existent issue
         let result = client.get_issue("PROJ-999").await;
+
+        // Then: an error is returned
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("404"));
+    }
+
+    #[tokio::test]
+    async fn add_comment_creates_comment_on_issue() {
+        // Given: a mock server accepting comment creation
+        let mock_server = MockServer::start().await;
+        let response_body = Comment {
+            id: "10100".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/PROJ-123/comment/10100"
+                .to_string(),
+            author: Some(User {
+                display_name: "Test User".to_string(),
+                email_address: Some("test@example.com".to_string()),
+            }),
+            created: Some("2024-01-17T09:00:00.000+0000".to_string()),
+        };
+
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/issue/PROJ-123/comment"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&response_body))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        // When: adding a comment
+        let comment = client
+            .add_comment("PROJ-123", "This is a test comment")
+            .await
+            .unwrap();
+
+        // Then: the created comment is returned
+        assert_eq!(comment.id, "10100");
+        assert_eq!(
+            comment.author.as_ref().map(|a| a.display_name.as_str()),
+            Some("Test User")
+        );
+    }
+
+    #[tokio::test]
+    async fn add_comment_returns_error_when_issue_not_found() {
+        // Given: a mock server returning 404
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/issue/PROJ-999/comment"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("Issue not found"))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        // When: adding a comment to a non-existent issue
+        let result = client.add_comment("PROJ-999", "Test comment").await;
 
         // Then: an error is returned
         assert!(result.is_err());
