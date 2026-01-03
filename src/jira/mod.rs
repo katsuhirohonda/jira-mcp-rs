@@ -132,17 +132,21 @@ impl JiraClient {
         let url = format!("{}/rest/api/3/issue/{}/comment", self.base_url, issue_key);
 
         let request_body = AddCommentRequest {
-            body: CommentBody {
-                doc_type: "doc".to_string(),
-                version: 1,
-                content: vec![CommentParagraph {
-                    paragraph_type: "paragraph".to_string(),
-                    content: vec![CommentText {
-                        text_type: "text".to_string(),
-                        text: comment.to_string(),
-                    }],
-                }],
-            },
+            body: serde_json::json!({
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": comment
+                            }
+                        ]
+                    }
+                ]
+            }),
         };
 
         let response = self
@@ -532,5 +536,76 @@ mod tests {
             client.auth_header,
             "Basic dXNlckBleGFtcGxlLmNvbTphcGktdG9rZW4="
         );
+    }
+
+    #[tokio::test]
+    async fn get_issue_handles_complex_comments() {
+        let mock_server = MockServer::start().await;
+        
+        // Complex ADF content with nested lists and paragraphs
+        let complex_comment_body = serde_json::json!({
+            "type": "doc",
+            "version": 1,
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Simple text"
+                        }
+                    ]
+                },
+                {
+                    "type": "bulletList",
+                    "content": [
+                        {
+                            "type": "listItem",
+                            "content": [
+                                {
+                                    "type": "paragraph",
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": "List item 1"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let mut issue = create_test_issue("PROJ-999", "Complex Issue", "Open");
+        // Manually construct the comment list with the complex body
+        issue.fields.comment = Some(CommentList {
+            total: 1,
+            comments: vec![Comment {
+                id: "20002".to_string(),
+                self_url: "http://url".to_string(),
+                author: None,
+                created: Some("2024-01-01T00:00:00.000+0000".to_string()),
+                body: Some(complex_comment_body),
+            }],
+        });
+
+        Mock::given(method("GET"))
+            .and(path("/rest/api/3/issue/PROJ-999"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&issue))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+        let result = client.get_issue("PROJ-999").await;
+
+        assert!(result.is_ok(), "Should successfully deserialize complex ADF content");
+        let fetched_issue = result.unwrap();
+        let comments = fetched_issue.fields.comment.unwrap().comments;
+        assert_eq!(comments.len(), 1);
+        
+        // basic check that body is present
+        assert!(comments[0].body.is_some());
     }
 }

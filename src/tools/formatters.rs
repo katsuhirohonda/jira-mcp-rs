@@ -102,11 +102,17 @@ pub fn format_issue(issue: &Issue) -> String {
                 
                 let mut body_text = String::new();
                 if let Some(body) = &comment.body {
-                    for paragraph in &body.content {
-                        for text_node in &paragraph.content {
-                            body_text.push_str(&text_node.text);
+                    if let Some(content) = body.get("content").and_then(|c| c.as_array()) {
+                        for paragraph in content {
+                            if let Some(para_content) = paragraph.get("content").and_then(|c| c.as_array()) {
+                                for text_node in para_content {
+                                    if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
+                                        body_text.push_str(text);
+                                    }
+                                }
+                                body_text.push('\n');
+                            }
                         }
-                        body_text.push('\n');
                     }
                 }
                 if body_text.is_empty() {

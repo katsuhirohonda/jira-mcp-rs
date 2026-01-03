@@ -75,29 +75,7 @@ pub struct Priority {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AddCommentRequest {
-    pub body: CommentBody,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CommentBody {
-    #[serde(rename = "type")]
-    pub doc_type: String,
-    pub version: u32,
-    pub content: Vec<CommentParagraph>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CommentParagraph {
-    #[serde(rename = "type")]
-    pub paragraph_type: String,
-    pub content: Vec<CommentText>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct CommentText {
-    #[serde(rename = "type")]
-    pub text_type: String,
-    pub text: String,
+    pub body: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -107,7 +85,7 @@ pub struct Comment {
     pub self_url: String,
     pub author: Option<User>,
     pub created: Option<String>,
-    pub body: Option<CommentBody>,
+    pub body: Option<serde_json::Value>,
 }
 
 /// Request body for updating an issue.
