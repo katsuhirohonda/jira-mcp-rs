@@ -41,14 +41,6 @@ pub struct UpdateIssueParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
-pub struct GetEpicsParams {
-    /// The project key (e.g., 'PROJ')
-    pub project_key: String,
-    /// Maximum number of results to return (default: 50, max: 100)
-    pub max_results: Option<u32>,
-}
-
-#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetCommentsParams {
     /// The issue key (e.g., 'PROJ-123')
     pub issue_key: String,

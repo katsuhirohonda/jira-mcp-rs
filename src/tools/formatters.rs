@@ -109,35 +109,6 @@ pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
     )
 }
 
-pub fn format_epics(project_key: &str, result: &SearchResult) -> String {
-    if result.issues.is_empty() {
-        return format!("No epics found in project {}", project_key);
-    }
-
-    let mut output = format!(
-        "Found {} epic(s) in project {}:\n\n",
-        result.total, project_key
-    );
-
-    for issue in &result.issues {
-        let status = issue
-            .fields
-            .status
-            .as_ref()
-            .map(|s| s.name.as_str())
-            .unwrap_or("Unknown");
-        let summary = issue
-            .fields
-            .summary
-            .as_deref()
-            .unwrap_or("No summary");
-
-        output.push_str(&format!("- **{}** [{}] {}\n", issue.key, status, summary));
-    }
-
-    output
-}
-
 pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String {
     if updated_fields.is_empty() {
         return format!("No fields were updated for {}", issue_key);
@@ -401,40 +372,4 @@ mod tests {
         assert!(output.contains("**Created:** Unknown"));
     }
 
-    #[test]
-    fn format_epics_shows_epic_list() {
-        let result = SearchResult {
-            total: 2,
-            max_results: 50,
-            start_at: 0,
-            issues: vec![
-                create_test_issue("PROJ-100", "Epic: User Authentication", "In Progress", "Alice"),
-                create_test_issue("PROJ-101", "Epic: Payment Integration", "Done", "Bob"),
-            ],
-        };
-
-        let output = format_epics("PROJ", &result);
-
-        assert!(output.contains("Found 2 epic(s) in project PROJ"));
-        assert!(output.contains("PROJ-100"));
-        assert!(output.contains("[In Progress]"));
-        assert!(output.contains("Epic: User Authentication"));
-        assert!(output.contains("PROJ-101"));
-        assert!(output.contains("[Done]"));
-        assert!(output.contains("Epic: Payment Integration"));
-    }
-
-    #[test]
-    fn format_epics_handles_empty_results() {
-        let result = SearchResult {
-            total: 0,
-            max_results: 50,
-            start_at: 0,
-            issues: vec![],
-        };
-
-        let output = format_epics("EMPTY", &result);
-
-        assert!(output.contains("No epics found in project EMPTY"));
-    }
 }

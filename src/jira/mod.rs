@@ -114,20 +114,6 @@ impl JiraClient {
         Ok(())
     }
 
-    /// Get all epics in a project.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let epics = client.get_epics("PROJ", 50).await?;
-    /// for epic in epics.issues {
-    ///     println!("{}: {}", epic.key, epic.fields.summary.unwrap_or_default());
-    /// }
-    /// ```
-    pub async fn get_epics(&self, project_key: &str, max_results: u32) -> Result<SearchResult> {
-        let jql = format!("project = {} AND type = Epic ORDER BY created DESC", project_key);
-        self.search_issues(&jql, max_results).await
-    }
-
     /// Get comments for an issue.
     ///
     /// Uses the dedicated comment endpoint for better pagination support.
@@ -493,64 +479,6 @@ mod tests {
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
         assert!(error_message.contains("404"));
-    }
-
-    #[tokio::test]
-    async fn get_epics_returns_epics_for_project() {
-        let mock_server = MockServer::start().await;
-        let epic = create_test_issue("PROJ-100", "Epic: User Authentication", "In Progress");
-        let response_body = SearchResult {
-            total: 1,
-            max_results: 50,
-            start_at: 0,
-            issues: vec![epic],
-        };
-
-        Mock::given(method("POST"))
-            .and(path("/rest/api/3/search/jql"))
-            .and(header(
-                "Authorization",
-                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
-            ))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
-            .mount(&mock_server)
-            .await;
-
-        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
-
-        let result = client.get_epics("PROJ", 50).await.unwrap();
-
-        assert_eq!(result.total, 1);
-        assert_eq!(result.issues.len(), 1);
-        assert_eq!(result.issues[0].key, "PROJ-100");
-        assert_eq!(
-            result.issues[0].fields.summary.as_deref(),
-            Some("Epic: User Authentication")
-        );
-    }
-
-    #[tokio::test]
-    async fn get_epics_returns_empty_when_no_epics() {
-        let mock_server = MockServer::start().await;
-        let response_body = SearchResult {
-            total: 0,
-            max_results: 50,
-            start_at: 0,
-            issues: vec![],
-        };
-
-        Mock::given(method("POST"))
-            .and(path("/rest/api/3/search/jql"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
-            .mount(&mock_server)
-            .await;
-
-        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
-
-        let result = client.get_epics("EMPTY", 50).await.unwrap();
-
-        assert_eq!(result.total, 0);
-        assert!(result.issues.is_empty());
     }
 
     #[test]

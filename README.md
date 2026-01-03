@@ -6,7 +6,6 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 
 - **search_issues**: Search for Jira issues using JQL (Jira Query Language)
 - **get_issue**: Get detailed information about a specific Jira issue
-- **get_epics**: Get all epics in a project
 - **add_comment**: Add a comment to a Jira issue
 - **update_issue**: Update issue fields (summary, due date, priority, assignee, parent/epic, labels)
 
@@ -64,14 +63,6 @@ Get detailed information about a specific issue.
 
 **Parameters:**
 - `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
-
-### get_epics
-
-Get all epics in a Jira project.
-
-**Parameters:**
-- `project_key` (string, required): The project key (e.g., `PROJ`)
-- `max_results` (number, optional): Maximum number of results (default: 50, max: 100)
 
 ### add_comment
 
