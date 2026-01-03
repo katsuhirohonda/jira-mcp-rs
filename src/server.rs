@@ -8,10 +8,10 @@ use rmcp::{
     ErrorData as McpError,
 };
 
-use crate::jira::JiraClient;
+use crate::jira::{JiraClient, UpdateIssueRequest};
 use crate::tools::{
-    format_comment, format_issue, format_search_result,
-    AddCommentParams, GetIssueParams, SearchIssuesParams,
+    format_comment, format_issue, format_search_result, format_update_result,
+    AddCommentParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
 };
 
 #[derive(Clone)]
@@ -81,6 +81,58 @@ impl JiraServer {
             }
             Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
                 "Failed to add comment: {}",
+                e
+            ))])),
+        }
+    }
+
+    #[tool(description = "Update a Jira issue's fields. Can update summary, due date, priority, assignee, parent (epic), and labels.")]
+    async fn update_issue(
+        &self,
+        Parameters(params): Parameters<UpdateIssueParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let mut update = UpdateIssueRequest::new();
+        let mut updated_fields = Vec::new();
+
+        if let Some(summary) = &params.summary {
+            update = update.summary(summary);
+            updated_fields.push("summary");
+        }
+        if let Some(due_date) = &params.due_date {
+            update = update.due_date(due_date);
+            updated_fields.push("due_date");
+        }
+        if let Some(priority) = &params.priority {
+            update = update.priority(priority);
+            updated_fields.push("priority");
+        }
+        if let Some(assignee_id) = &params.assignee_account_id {
+            update = update.assignee(assignee_id);
+            updated_fields.push("assignee");
+        }
+        if let Some(parent_key) = &params.parent_key {
+            update = update.parent(parent_key);
+            updated_fields.push("parent");
+        }
+        if let Some(labels) = &params.labels {
+            let label_refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+            update = update.labels(label_refs);
+            updated_fields.push("labels");
+        }
+
+        if updated_fields.is_empty() {
+            return Ok(CallToolResult::error(vec![Content::text(
+                "No fields provided to update. Please specify at least one field to update.",
+            )]));
+        }
+
+        match self.jira.update_issue(&params.issue_key, update).await {
+            Ok(()) => {
+                let output = format_update_result(&params.issue_key, &updated_fields);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to update issue: {}",
                 e
             ))])),
         }

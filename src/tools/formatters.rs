@@ -130,6 +130,18 @@ pub fn format_comment(issue_key: &str, comment: &Comment) -> String {
     )
 }
 
+pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String {
+    if updated_fields.is_empty() {
+        return format!("No fields were updated for {}", issue_key);
+    }
+
+    format!(
+        "Issue {} updated successfully.\n\n**Updated fields:** {}",
+        issue_key,
+        updated_fields.join(", ")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

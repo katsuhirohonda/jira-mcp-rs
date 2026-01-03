@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -97,4 +98,66 @@ pub struct Comment {
     pub author: Option<User>,
     pub created: Option<String>,
     pub body: Option<CommentBody>,
+}
+
+/// Request body for updating an issue.
+/// Uses HashMap to allow flexible field updates.
+#[derive(Debug, Serialize, Default)]
+pub struct UpdateIssueRequest {
+    /// Fields to update (e.g., "summary", "duedate", "priority", "assignee", "parent")
+    pub fields: HashMap<String, serde_json::Value>,
+}
+
+impl UpdateIssueRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the summary (title) of the issue
+    pub fn summary(mut self, summary: &str) -> Self {
+        self.fields
+            .insert("summary".to_string(), serde_json::json!(summary));
+        self
+    }
+
+    /// Set the due date (format: "YYYY-MM-DD")
+    pub fn due_date(mut self, date: &str) -> Self {
+        self.fields
+            .insert("duedate".to_string(), serde_json::json!(date));
+        self
+    }
+
+    /// Set the priority by name (e.g., "High", "Medium", "Low")
+    pub fn priority(mut self, priority_name: &str) -> Self {
+        self.fields.insert(
+            "priority".to_string(),
+            serde_json::json!({"name": priority_name}),
+        );
+        self
+    }
+
+    /// Set the assignee by account ID
+    pub fn assignee(mut self, account_id: &str) -> Self {
+        self.fields.insert(
+            "assignee".to_string(),
+            serde_json::json!({"accountId": account_id}),
+        );
+        self
+    }
+
+    /// Set the parent issue (for subtasks or moving to an epic)
+    pub fn parent(mut self, parent_key: &str) -> Self {
+        self.fields.insert(
+            "parent".to_string(),
+            serde_json::json!({"key": parent_key}),
+        );
+        self
+    }
+
+    /// Set labels
+    pub fn labels(mut self, labels: Vec<&str>) -> Self {
+        self.fields
+            .insert("labels".to_string(), serde_json::json!(labels));
+        self
+    }
 }

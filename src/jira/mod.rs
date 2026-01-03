@@ -81,6 +81,38 @@ impl JiraClient {
         Ok(issue)
     }
 
+    /// Update an issue's fields.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let update = UpdateIssueRequest::new()
+    ///     .due_date("2025-01-31")
+    ///     .priority("High")
+    ///     .parent("EPIC-123");
+    ///
+    /// client.update_issue("PROJ-456", update).await?;
+    /// ```
+    pub async fn update_issue(&self, issue_key: &str, update: UpdateIssueRequest) -> Result<()> {
+        let url = format!("{}/rest/api/3/issue/{}", self.base_url, issue_key);
+
+        let response = self
+            .client
+            .put(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Content-Type", "application/json")
+            .json(&update)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            anyhow::bail!("Jira API error ({}): {}", status, error_text);
+        }
+
+        Ok(())
+    }
+
     pub async fn add_comment(&self, issue_key: &str, comment: &str) -> Result<Comment> {
         let url = format!("{}/rest/api/3/issue/{}/comment", self.base_url, issue_key);
 
@@ -327,6 +359,71 @@ mod tests {
         let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
 
         let result = client.add_comment("PROJ-999", "Test comment").await;
+
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("404"));
+    }
+
+    #[tokio::test]
+    async fn update_issue_updates_fields_successfully() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/rest/api/3/issue/PROJ-123"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let update = UpdateIssueRequest::new()
+            .due_date("2025-02-01")
+            .priority("High");
+
+        let result = client.update_issue("PROJ-123", update).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn update_issue_with_parent_epic() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/rest/api/3/issue/PROJ-456"))
+            .respond_with(ResponseTemplate::new(204))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let update = UpdateIssueRequest::new().parent("EPIC-100");
+
+        let result = client.update_issue("PROJ-456", update).await;
+
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn update_issue_returns_error_when_issue_not_found() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/rest/api/3/issue/PROJ-999"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("Issue not found"))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let update = UpdateIssueRequest::new().summary("New summary");
+
+        let result = client.update_issue("PROJ-999", update).await;
 
         assert!(result.is_err());
         let error_message = result.unwrap_err().to_string();
