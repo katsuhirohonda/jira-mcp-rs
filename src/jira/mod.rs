@@ -128,6 +128,47 @@ impl JiraClient {
         self.search_issues(&jql, max_results).await
     }
 
+    /// Get comments for an issue.
+    ///
+    /// Uses the dedicated comment endpoint for better pagination support.
+    /// Reference: https://developer.atlassian.com/server/jira/platform/rest/v11002/api-group-issue/#api-api-2-issue-issueidorkey-comment-get
+    ///
+    /// # Example
+    /// ```ignore
+    /// let comments = client.get_comments("PROJ-123", 0, 50).await?;
+    /// for comment in comments.comments {
+    ///     println!("{}: {:?}", comment.id, comment.body);
+    /// }
+    /// ```
+    pub async fn get_comments(
+        &self,
+        issue_key: &str,
+        start_at: u32,
+        max_results: u32,
+    ) -> Result<CommentResponse> {
+        let url = format!(
+            "{}/rest/api/2/issue/{}/comment?startAt={}&maxResults={}",
+            self.base_url, issue_key, start_at, max_results
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Content-Type", "application/json")
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            anyhow::bail!("Jira API error ({}): {}", status, error_text);
+        }
+
+        let result = response.json::<CommentResponse>().await?;
+        Ok(result)
+    }
+
     pub async fn add_comment(&self, issue_key: &str, comment: &str) -> Result<Comment> {
         let url = format!("{}/rest/api/3/issue/{}/comment", self.base_url, issue_key);
 
@@ -539,9 +580,121 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn get_comments_returns_paginated_comments() {
+        let mock_server = MockServer::start().await;
+        let response_body = CommentResponse {
+            start_at: 0,
+            max_results: 50,
+            total: 2,
+            comments: vec![
+                Comment {
+                    id: "10001".to_string(),
+                    self_url: "https://example.atlassian.net/rest/api/2/issue/PROJ-123/comment/10001"
+                        .to_string(),
+                    author: Some(User {
+                        display_name: "Alice".to_string(),
+                        email_address: Some("alice@example.com".to_string()),
+                        account_id: Some("alice-account-id".to_string()),
+                    }),
+                    created: Some("2024-01-15T10:00:00.000+0000".to_string()),
+                    body: Some(serde_json::json!({
+                        "type": "doc",
+                        "version": 1,
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "First comment"}]
+                        }]
+                    })),
+                },
+                Comment {
+                    id: "10002".to_string(),
+                    self_url: "https://example.atlassian.net/rest/api/2/issue/PROJ-123/comment/10002"
+                        .to_string(),
+                    author: Some(User {
+                        display_name: "Bob".to_string(),
+                        email_address: Some("bob@example.com".to_string()),
+                        account_id: Some("bob-account-id".to_string()),
+                    }),
+                    created: Some("2024-01-16T14:00:00.000+0000".to_string()),
+                    body: Some(serde_json::json!({
+                        "type": "doc",
+                        "version": 1,
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "Second comment"}]
+                        }]
+                    })),
+                },
+            ],
+        };
+
+        Mock::given(method("GET"))
+            .and(path("/rest/api/2/issue/PROJ-123/comment"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let result = client.get_comments("PROJ-123", 0, 50).await.unwrap();
+
+        assert_eq!(result.total, 2);
+        assert_eq!(result.comments.len(), 2);
+        assert_eq!(result.comments[0].id, "10001");
+        assert_eq!(result.comments[1].id, "10002");
+    }
+
+    #[tokio::test]
+    async fn get_comments_returns_empty_when_no_comments() {
+        let mock_server = MockServer::start().await;
+        let response_body = CommentResponse {
+            start_at: 0,
+            max_results: 50,
+            total: 0,
+            comments: vec![],
+        };
+
+        Mock::given(method("GET"))
+            .and(path("/rest/api/2/issue/PROJ-456/comment"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let result = client.get_comments("PROJ-456", 0, 50).await.unwrap();
+
+        assert_eq!(result.total, 0);
+        assert!(result.comments.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_comments_returns_error_when_issue_not_found() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("GET"))
+            .and(path("/rest/api/2/issue/PROJ-999/comment"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("Issue not found"))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+
+        let result = client.get_comments("PROJ-999", 0, 50).await;
+
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("404"));
+    }
+
+    #[tokio::test]
     async fn get_issue_handles_complex_comments() {
         let mock_server = MockServer::start().await;
-        
+
         // Complex ADF content with nested lists and paragraphs
         let complex_comment_body = serde_json::json!({
             "type": "doc",

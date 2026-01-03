@@ -1,4 +1,4 @@
-use crate::jira::{Comment, Issue, SearchResult};
+use crate::jira::{Comment, CommentResponse, Issue, SearchResult};
 
 pub fn format_search_result(result: &SearchResult) -> String {
     let mut output = format!(
@@ -190,10 +190,68 @@ pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String 
     )
 }
 
+pub fn format_comments(issue_key: &str, response: &CommentResponse) -> String {
+    if response.comments.is_empty() {
+        return format!("No comments found for {}", issue_key);
+    }
+
+    let mut output = format!(
+        "Comments for {} (showing {}-{} of {}):\n\n",
+        issue_key,
+        response.start_at + 1,
+        response.start_at + response.comments.len() as u32,
+        response.total
+    );
+
+    for comment in &response.comments {
+        let author = comment
+            .author
+            .as_ref()
+            .map(|a| {
+                format!(
+                    "{} ({})",
+                    a.display_name,
+                    a.account_id.as_deref().unwrap_or("No ID")
+                )
+            })
+            .unwrap_or_else(|| "Unknown".to_string());
+        let created = comment.created.as_deref().unwrap_or("Unknown");
+
+        let mut body_text = String::new();
+        if let Some(body) = &comment.body {
+            if let Some(content) = body.get("content").and_then(|c| c.as_array()) {
+                for paragraph in content {
+                    if let Some(para_content) = paragraph.get("content").and_then(|c| c.as_array())
+                    {
+                        for text_node in para_content {
+                            if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
+                                body_text.push_str(text);
+                            }
+                        }
+                        body_text.push('\n');
+                    }
+                }
+            }
+        }
+        if body_text.is_empty() {
+            body_text = "No content".to_string();
+        }
+
+        output.push_str(&format!(
+            "### Comment by {} ({})\n{}\n\n",
+            author,
+            created,
+            body_text.trim()
+        ));
+    }
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::jira::{IssueFields, IssueType, Priority, Status, User};
+    use crate::jira::{CommentResponse, IssueFields, IssueType, Priority, Status, User};
 
     fn create_test_issue(key: &str, summary: &str, status: &str, assignee: &str) -> Issue {
         Issue {
@@ -422,5 +480,99 @@ mod tests {
         let output = format_epics("EMPTY", &result);
 
         assert!(output.contains("No epics found in project EMPTY"));
+    }
+
+    #[test]
+    fn format_comments_shows_paginated_comments() {
+        let response = CommentResponse {
+            start_at: 0,
+            max_results: 50,
+            total: 2,
+            comments: vec![
+                Comment {
+                    id: "10001".to_string(),
+                    self_url: "https://example.atlassian.net/rest/api/2/issue/PROJ-123/comment/10001"
+                        .to_string(),
+                    author: Some(User {
+                        display_name: "Alice".to_string(),
+                        email_address: Some("alice@example.com".to_string()),
+                        account_id: Some("alice-account-id".to_string()),
+                    }),
+                    created: Some("2024-01-15T10:00:00.000+0000".to_string()),
+                    body: Some(serde_json::json!({
+                        "type": "doc",
+                        "version": 1,
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "First comment text"}]
+                        }]
+                    })),
+                },
+                Comment {
+                    id: "10002".to_string(),
+                    self_url: "https://example.atlassian.net/rest/api/2/issue/PROJ-123/comment/10002"
+                        .to_string(),
+                    author: Some(User {
+                        display_name: "Bob".to_string(),
+                        email_address: Some("bob@example.com".to_string()),
+                        account_id: Some("bob-account-id".to_string()),
+                    }),
+                    created: Some("2024-01-16T14:00:00.000+0000".to_string()),
+                    body: Some(serde_json::json!({
+                        "type": "doc",
+                        "version": 1,
+                        "content": [{
+                            "type": "paragraph",
+                            "content": [{"type": "text", "text": "Second comment text"}]
+                        }]
+                    })),
+                },
+            ],
+        };
+
+        let output = format_comments("PROJ-123", &response);
+
+        assert!(output.contains("Comments for PROJ-123 (showing 1-2 of 2)"));
+        assert!(output.contains("Comment by Alice"));
+        assert!(output.contains("First comment text"));
+        assert!(output.contains("Comment by Bob"));
+        assert!(output.contains("Second comment text"));
+    }
+
+    #[test]
+    fn format_comments_handles_empty_comments() {
+        let response = CommentResponse {
+            start_at: 0,
+            max_results: 50,
+            total: 0,
+            comments: vec![],
+        };
+
+        let output = format_comments("PROJ-456", &response);
+
+        assert!(output.contains("No comments found for PROJ-456"));
+    }
+
+    #[test]
+    fn format_comments_handles_missing_fields() {
+        let response = CommentResponse {
+            start_at: 0,
+            max_results: 50,
+            total: 1,
+            comments: vec![Comment {
+                id: "10001".to_string(),
+                self_url: "https://example.atlassian.net/rest/api/2/issue/PROJ-789/comment/10001"
+                    .to_string(),
+                author: None,
+                created: None,
+                body: None,
+            }],
+        };
+
+        let output = format_comments("PROJ-789", &response);
+
+        assert!(output.contains("Comments for PROJ-789"));
+        assert!(output.contains("Comment by Unknown"));
+        assert!(output.contains("No content"));
     }
 }

@@ -54,6 +54,16 @@ pub struct CommentList {
     pub total: u32,
 }
 
+/// Response from GET /rest/api/2/issue/{issueIdOrKey}/comment
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommentResponse {
+    pub start_at: u32,
+    pub max_results: u32,
+    pub total: u32,
+    pub comments: Vec<Comment>,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Status {
     pub name: String,
