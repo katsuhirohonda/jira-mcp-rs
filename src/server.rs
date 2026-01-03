@@ -10,8 +10,9 @@ use rmcp::{
 
 use crate::jira::{JiraClient, UpdateIssueRequest};
 use crate::tools::{
-    format_comment, format_epics, format_issue, format_search_result, format_update_result,
-    AddCommentParams, GetEpicsParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
+    format_comment, format_comments, format_epics, format_issue, format_search_result,
+    format_update_result, AddCommentParams, GetCommentsParams, GetEpicsParams, GetIssueParams,
+    SearchIssuesParams, UpdateIssueParams,
 };
 
 #[derive(Clone)]
@@ -100,6 +101,30 @@ impl JiraServer {
             }
             Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
                 "Failed to get epics: {}",
+                e
+            ))])),
+        }
+    }
+
+    #[tool(description = "Get comments on a Jira issue with pagination support. Returns comments with author, date, and content.")]
+    async fn get_comments(
+        &self,
+        Parameters(params): Parameters<GetCommentsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let start_at = params.start_at.unwrap_or(0);
+        let max_results = params.max_results.unwrap_or(50).min(100);
+
+        match self
+            .jira
+            .get_comments(&params.issue_key, start_at, max_results)
+            .await
+        {
+            Ok(response) => {
+                let output = format_comments(&params.issue_key, &response);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to get comments: {}",
                 e
             ))])),
         }

@@ -47,3 +47,13 @@ pub struct GetEpicsParams {
     /// Maximum number of results to return (default: 50, max: 100)
     pub max_results: Option<u32>,
 }
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct GetCommentsParams {
+    /// The issue key (e.g., 'PROJ-123')
+    pub issue_key: String,
+    /// Starting index for pagination (default: 0)
+    pub start_at: Option<u32>,
+    /// Maximum number of comments to return (default: 50, max: 100)
+    pub max_results: Option<u32>,
+}

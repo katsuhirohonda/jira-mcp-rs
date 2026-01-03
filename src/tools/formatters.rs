@@ -1,4 +1,4 @@
-use crate::jira::{Comment, Issue, SearchResult};
+use crate::jira::{Comment, CommentResponse, Issue, SearchResult};
 
 pub fn format_search_result(result: &SearchResult) -> String {
     let mut output = format!(
@@ -148,6 +148,64 @@ pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String 
         issue_key,
         updated_fields.join(", ")
     )
+}
+
+pub fn format_comments(issue_key: &str, response: &CommentResponse) -> String {
+    if response.comments.is_empty() {
+        return format!("No comments found for {}", issue_key);
+    }
+
+    let mut output = format!(
+        "Comments for {} (showing {}-{} of {}):\n\n",
+        issue_key,
+        response.start_at + 1,
+        response.start_at + response.comments.len() as u32,
+        response.total
+    );
+
+    for comment in &response.comments {
+        let author = comment
+            .author
+            .as_ref()
+            .map(|a| {
+                format!(
+                    "{} ({})",
+                    a.display_name,
+                    a.account_id.as_deref().unwrap_or("No ID")
+                )
+            })
+            .unwrap_or_else(|| "Unknown".to_string());
+        let created = comment.created.as_deref().unwrap_or("Unknown");
+
+        let mut body_text = String::new();
+        if let Some(body) = &comment.body {
+            if let Some(content) = body.get("content").and_then(|c| c.as_array()) {
+                for paragraph in content {
+                    if let Some(para_content) = paragraph.get("content").and_then(|c| c.as_array())
+                    {
+                        for text_node in para_content {
+                            if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
+                                body_text.push_str(text);
+                            }
+                        }
+                        body_text.push('\n');
+                    }
+                }
+            }
+        }
+        if body_text.is_empty() {
+            body_text = "No content".to_string();
+        }
+
+        output.push_str(&format!(
+            "### Comment by {} ({})\n{}\n\n",
+            author,
+            created,
+            body_text.trim()
+        ));
+    }
+
+    output
 }
 
 #[cfg(test)]
