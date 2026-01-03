@@ -131,7 +131,7 @@ impl JiraClient {
     /// Get comments for an issue.
     ///
     /// Uses the dedicated comment endpoint for better pagination support.
-    /// Reference: https://developer.atlassian.com/server/jira/platform/rest/v11002/api-group-issue/#api-api-2-issue-issueidorkey-comment-get
+    /// Reference: https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-comments/
     ///
     /// # Example
     /// ```ignore
@@ -147,7 +147,7 @@ impl JiraClient {
         max_results: u32,
     ) -> Result<CommentResponse> {
         let url = format!(
-            "{}/rest/api/2/issue/{}/comment?startAt={}&maxResults={}",
+            "{}/rest/api/3/issue/{}/comment?startAt={}&maxResults={}",
             self.base_url, issue_key, start_at, max_results
         );
 
@@ -628,7 +628,7 @@ mod tests {
         };
 
         Mock::given(method("GET"))
-            .and(path("/rest/api/2/issue/PROJ-123/comment"))
+            .and(path("/rest/api/3/issue/PROJ-123/comment"))
             .and(header(
                 "Authorization",
                 "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
@@ -658,7 +658,7 @@ mod tests {
         };
 
         Mock::given(method("GET"))
-            .and(path("/rest/api/2/issue/PROJ-456/comment"))
+            .and(path("/rest/api/3/issue/PROJ-456/comment"))
             .respond_with(ResponseTemplate::new(200).set_body_json(&response_body))
             .mount(&mock_server)
             .await;
@@ -676,7 +676,7 @@ mod tests {
         let mock_server = MockServer::start().await;
 
         Mock::given(method("GET"))
-            .and(path("/rest/api/2/issue/PROJ-999/comment"))
+            .and(path("/rest/api/3/issue/PROJ-999/comment"))
             .respond_with(ResponseTemplate::new(404).set_body_string("Issue not found"))
             .mount(&mock_server)
             .await;
