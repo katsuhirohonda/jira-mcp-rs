@@ -6,6 +6,7 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 
 - **search_issues**: Search for Jira issues using JQL (Jira Query Language)
 - **get_issue**: Get detailed information about a specific Jira issue
+- **add_comment**: Add a comment to a Jira issue
 
 ## Requirements
 
@@ -61,3 +62,30 @@ Get detailed information about a specific issue.
 
 **Parameters:**
 - `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
+
+### add_comment
+
+Add a comment to a Jira issue.
+
+**Parameters:**
+- `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
+- `comment` (string, required): The comment text to add to the issue
+
+## Project Structure
+
+```
+src/
+├── main.rs          # Entry point
+├── server.rs        # MCP server with tool definitions
+├── jira/
+│   ├── mod.rs       # Jira API client
+│   └── models.rs    # Data structures (Issue, Comment, etc.)
+└── tools/
+    ├── mod.rs       # Module exports
+    ├── params.rs    # Tool parameter definitions
+    └── formatters.rs # Output formatting functions
+```
+
+## License
+
+MIT
