@@ -76,6 +76,13 @@ pub fn format_issue(issue: &Issue) -> String {
     let created = issue.fields.created.as_deref().unwrap_or("Unknown");
     let updated = issue.fields.updated.as_deref().unwrap_or("Unknown");
 
+    let description = issue
+        .fields
+        .description
+        .as_ref()
+        .map(|d| parse_adf_body(d))
+        .unwrap_or_else(|| "No description".to_string());
+
     format!(
         r#"# {} - {}
 
@@ -86,8 +93,20 @@ pub fn format_issue(issue: &Issue) -> String {
 **Created:** {}
 **Updated:** {}
 **URL:** {}
+
+### Description
+{}
 "#,
-        issue.key, summary, issue_type, status, assignee, priority, created, updated, issue.self_url
+        issue.key,
+        summary,
+        issue_type,
+        status,
+        assignee,
+        priority,
+        created,
+        updated,
+        issue.self_url,
+        description
     )
 }
 
@@ -194,25 +213,11 @@ pub fn format_comments(issue_key: &str, response: &CommentResponse) -> String {
             .unwrap_or_else(|| "Unknown".to_string());
         let created = comment.created.as_deref().unwrap_or("Unknown");
 
-        let mut body_text = String::new();
-        if let Some(body) = &comment.body {
-            if let Some(content) = body.get("content").and_then(|c| c.as_array()) {
-                for paragraph in content {
-                    if let Some(para_content) = paragraph.get("content").and_then(|c| c.as_array())
-                    {
-                        for text_node in para_content {
-                            if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
-                                body_text.push_str(text);
-                            }
-                        }
-                        body_text.push('\n');
-                    }
-                }
-            }
-        }
-        if body_text.is_empty() {
-            body_text = "No content".to_string();
-        }
+        let body_text = comment
+            .body
+            .as_ref()
+            .map(|b| parse_adf_body(b))
+            .unwrap_or_else(|| "No content".to_string());
 
         output.push_str(&format!(
             "### Comment by {} ({})\n{}\n\n",
@@ -223,6 +228,46 @@ pub fn format_comments(issue_key: &str, response: &CommentResponse) -> String {
     }
 
     output
+}
+
+fn parse_adf_body(body: &serde_json::Value) -> String {
+    let mut text_output = String::new();
+
+    if let Some(content) = body.get("content").and_then(|c| c.as_array()) {
+        for node in content {
+            if let Some(node_type) = node.get("type").and_then(|t| t.as_str()) {
+                match node_type {
+                    "paragraph" => {
+                        if let Some(para_content) = node.get("content").and_then(|c| c.as_array()) {
+                            for text_node in para_content {
+                                if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
+                                    text_output.push_str(text);
+                                }
+                            }
+                            text_output.push('\n');
+                        }
+                    }
+                    _ => {
+                        // Very basic fallback for other block types
+                        if let Some(para_content) = node.get("content").and_then(|c| c.as_array()) {
+                             for text_node in para_content {
+                                if let Some(text) = text_node.get("text").and_then(|t| t.as_str()) {
+                                    text_output.push_str(text);
+                                }
+                            }
+                             text_output.push('\n');
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if text_output.is_empty() {
+        return "No content".to_string();
+    }
+    
+    text_output
 }
 
 #[cfg(test)]
@@ -250,7 +295,21 @@ mod tests {
                 }),
                 created: Some("2024-01-15T10:00:00.000+0000".to_string()),
                 updated: Some("2024-01-16T14:30:00.000+0000".to_string()),
-                description: None,
+                description: Some(serde_json::json!({
+                    "type": "doc",
+                    "version": 1,
+                    "content": [
+                        {
+                            "type": "paragraph",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "This is a test description."
+                                }
+                            ]
+                        }
+                    ]
+                })),
                 issue_type: Some(IssueType {
                     name: "Story".to_string(),
                     subtask: false,
@@ -346,6 +405,8 @@ mod tests {
         assert!(output.contains(
             "**URL:** https://example.atlassian.net/rest/api/3/issue/PROJ-123"
         ));
+        assert!(output.contains("### Description"));
+        assert!(output.contains("This is a test description."));
     }
 
     #[test]
@@ -374,6 +435,8 @@ mod tests {
         assert!(output.contains("**Priority:** None"));
         assert!(output.contains("**Created:** Unknown"));
         assert!(output.contains("**Updated:** Unknown"));
+        assert!(output.contains("### Description"));
+        assert!(output.contains("No description"));
     }
 
     #[test]
