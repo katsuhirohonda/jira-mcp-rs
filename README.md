@@ -30,9 +30,9 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 cargo build --release
 ```
 
-## Usage with Claude Desktop
+## Usage with MCP Clients (Claude Desktop, Gemini, etc.)
 
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your MCP client configuration (e.g., `~/Library/Application Support/Claude/claude_desktop_config.json` for Claude Desktop, or your Gemini config):
 
 ```json
 {
