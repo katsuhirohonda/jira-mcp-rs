@@ -195,3 +195,161 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jira::{Issue, IssueFields, Priority, SearchResult, Status, User};
+
+    fn create_test_issue(key: &str, summary: &str, status: &str, assignee: &str) -> Issue {
+        Issue {
+            id: "10001".to_string(),
+            key: key.to_string(),
+            self_url: format!("https://example.atlassian.net/rest/api/3/issue/{}", key),
+            fields: IssueFields {
+                summary: Some(summary.to_string()),
+                status: Some(Status {
+                    name: status.to_string(),
+                }),
+                assignee: Some(User {
+                    display_name: assignee.to_string(),
+                    email_address: Some("test@example.com".to_string()),
+                }),
+                priority: Some(Priority {
+                    name: "High".to_string(),
+                }),
+                created: Some("2024-01-15T10:00:00.000+0000".to_string()),
+                updated: Some("2024-01-16T14:30:00.000+0000".to_string()),
+                description: None,
+            },
+        }
+    }
+
+    #[test]
+    fn format_search_result_shows_issue_count_and_details() {
+        // Given: a search result with multiple issues
+        let result = SearchResult {
+            total: 2,
+            max_results: 50,
+            start_at: 0,
+            issues: vec![
+                create_test_issue("PROJ-1", "First issue", "Open", "Alice"),
+                create_test_issue("PROJ-2", "Second issue", "In Progress", "Bob"),
+            ],
+        };
+
+        // When: formatting the result
+        let output = format_search_result(&result);
+
+        // Then: the output contains issue count and details
+        assert!(output.contains("Found 2 issues"));
+        assert!(output.contains("PROJ-1"));
+        assert!(output.contains("First issue"));
+        assert!(output.contains("[Open]"));
+        assert!(output.contains("Alice"));
+        assert!(output.contains("PROJ-2"));
+        assert!(output.contains("Second issue"));
+        assert!(output.contains("[In Progress]"));
+        assert!(output.contains("Bob"));
+    }
+
+    #[test]
+    fn format_search_result_handles_empty_results() {
+        // Given: an empty search result
+        let result = SearchResult {
+            total: 0,
+            max_results: 50,
+            start_at: 0,
+            issues: vec![],
+        };
+
+        // When: formatting the result
+        let output = format_search_result(&result);
+
+        // Then: the output shows zero issues
+        assert!(output.contains("Found 0 issues"));
+        assert!(output.contains("showing 0 of 0"));
+    }
+
+    #[test]
+    fn format_search_result_handles_missing_fields() {
+        // Given: an issue with missing optional fields
+        let issue = Issue {
+            id: "10001".to_string(),
+            key: "PROJ-1".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/PROJ-1".to_string(),
+            fields: IssueFields {
+                summary: None,
+                status: None,
+                assignee: None,
+                priority: None,
+                created: None,
+                updated: None,
+                description: None,
+            },
+        };
+        let result = SearchResult {
+            total: 1,
+            max_results: 50,
+            start_at: 0,
+            issues: vec![issue],
+        };
+
+        // When: formatting the result
+        let output = format_search_result(&result);
+
+        // Then: default values are shown
+        assert!(output.contains("PROJ-1"));
+        assert!(output.contains("[Unknown]"));
+        assert!(output.contains("No summary"));
+        assert!(output.contains("Unassigned"));
+    }
+
+    #[test]
+    fn format_issue_shows_all_details() {
+        // Given: a complete issue
+        let issue = create_test_issue("PROJ-123", "Important bug fix", "Done", "Developer");
+
+        // When: formatting the issue
+        let output = format_issue(&issue);
+
+        // Then: all details are shown
+        assert!(output.contains("# PROJ-123 - Important bug fix"));
+        assert!(output.contains("**Status:** Done"));
+        assert!(output.contains("**Assignee:** Developer"));
+        assert!(output.contains("**Priority:** High"));
+        assert!(output.contains("**Created:** 2024-01-15T10:00:00.000+0000"));
+        assert!(output.contains("**Updated:** 2024-01-16T14:30:00.000+0000"));
+        assert!(output.contains("**URL:** https://example.atlassian.net/rest/api/3/issue/PROJ-123"));
+    }
+
+    #[test]
+    fn format_issue_handles_missing_fields() {
+        // Given: an issue with missing optional fields
+        let issue = Issue {
+            id: "10001".to_string(),
+            key: "PROJ-1".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/PROJ-1".to_string(),
+            fields: IssueFields {
+                summary: None,
+                status: None,
+                assignee: None,
+                priority: None,
+                created: None,
+                updated: None,
+                description: None,
+            },
+        };
+
+        // When: formatting the issue
+        let output = format_issue(&issue);
+
+        // Then: default values are shown
+        assert!(output.contains("# PROJ-1 - No summary"));
+        assert!(output.contains("**Status:** Unknown"));
+        assert!(output.contains("**Assignee:** Unassigned"));
+        assert!(output.contains("**Priority:** None"));
+        assert!(output.contains("**Created:** Unknown"));
+        assert!(output.contains("**Updated:** Unknown"));
+    }
+}
