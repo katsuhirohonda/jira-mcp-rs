@@ -7,6 +7,7 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 - **search_issues**: Search for Jira issues using JQL (Jira Query Language)
 - **get_issue**: Get detailed information about a specific Jira issue
 - **add_comment**: Add a comment to a Jira issue
+- **update_issue**: Update issue fields (summary, due date, priority, assignee, parent/epic, labels)
 
 ## Requirements
 
@@ -70,6 +71,19 @@ Add a comment to a Jira issue.
 **Parameters:**
 - `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
 - `comment` (string, required): The comment text to add to the issue
+
+### update_issue
+
+Update a Jira issue's fields.
+
+**Parameters:**
+- `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
+- `summary` (string, optional): New summary/title for the issue
+- `due_date` (string, optional): Due date in YYYY-MM-DD format (e.g., `2025-01-31`)
+- `priority` (string, optional): Priority name (e.g., `High`, `Medium`, `Low`)
+- `assignee_account_id` (string, optional): Assignee's account ID
+- `parent_key` (string, optional): Parent issue key for subtasks or epic (e.g., `EPIC-123`)
+- `labels` (array of strings, optional): Labels to set on the issue
 
 ## Project Structure
 
