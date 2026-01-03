@@ -2,8 +2,12 @@
 name = "jira-mcp-rs"
 version = "0.1.0"
 edition = "2024"
-description = "MCP server for Jira integration"
-authors = ["honda"]
+authors = ["Katsuhiro Honda"]
+description = "Model Context Protocol (MCP) server for Jira"
+license = "MIT"
+repository = "https://github.com/katsuhirohonda/jira-mcp-rs"
+keywords = ["mcp", "jira", "ai", "llm", "atlassian"]
+categories = ["api-bindings", "asynchronous"]
 
 [dependencies]
 rmcp = { version = "0.5", features = ["server", "transport-io", "macros"] }
