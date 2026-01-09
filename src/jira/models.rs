@@ -150,4 +150,27 @@ impl UpdateIssueRequest {
             .insert("labels".to_string(), serde_json::json!(labels));
         self
     }
+
+    /// Set the description (plain text will be converted to Atlassian Document Format)
+    pub fn description(mut self, description: &str) -> Self {
+        self.fields.insert(
+            "description".to_string(),
+            serde_json::json!({
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": description
+                            }
+                        ]
+                    }
+                ]
+            }),
+        );
+        self
+    }
 }

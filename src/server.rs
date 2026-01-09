@@ -130,7 +130,7 @@ impl JiraServer {
         }
     }
 
-    #[tool(description = "Update a Jira issue's fields. Can update summary, due date, priority, assignee, parent (epic), and labels.")]
+    #[tool(description = "Update a Jira issue's fields. Can update summary, description, due date, priority, assignee, parent (epic), and labels.")]
     async fn update_issue(
         &self,
         Parameters(params): Parameters<UpdateIssueParams>,
@@ -141,6 +141,10 @@ impl JiraServer {
         if let Some(summary) = &params.summary {
             update = update.summary(summary);
             updated_fields.push("summary");
+        }
+        if let Some(description) = &params.description {
+            update = update.description(description);
+            updated_fields.push("description");
         }
         if let Some(due_date) = &params.due_date {
             update = update.due_date(due_date);

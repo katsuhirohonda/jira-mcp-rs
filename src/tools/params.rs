@@ -28,6 +28,8 @@ pub struct UpdateIssueParams {
     pub issue_key: String,
     /// New summary/title for the issue
     pub summary: Option<String>,
+    /// New description for the issue (plain text, will be converted to Atlassian Document Format)
+    pub description: Option<String>,
     /// Due date in YYYY-MM-DD format (e.g., '2025-01-31')
     pub due_date: Option<String>,
     /// Priority name (e.g., 'High', 'Medium', 'Low')
