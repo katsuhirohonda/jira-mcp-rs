@@ -1,4 +1,4 @@
-use crate::jira::{Comment, CommentResponse, Issue, SearchResult};
+use crate::jira::{Comment, CommentResponse, CreatedIssue, Issue, SearchResult};
 
 pub fn format_search_result(result: &SearchResult) -> String {
     let total = result.total.unwrap_or(result.issues.len() as u32);
@@ -172,6 +172,13 @@ pub fn format_children(parent_key: &str, result: &SearchResult) -> String {
     }
 
     output
+}
+
+pub fn format_create_result(issue: &CreatedIssue) -> String {
+    format!(
+        "Issue created successfully.\n\n**Key:** {}\n**ID:** {}\n**URL:** {}",
+        issue.key, issue.id, issue.self_url
+    )
 }
 
 pub fn format_update_result(issue_key: &str, updated_fields: &[&str]) -> String {

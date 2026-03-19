@@ -8,11 +8,11 @@ use rmcp::{
     ErrorData as McpError,
 };
 
-use crate::jira::{JiraClient, UpdateIssueRequest};
+use crate::jira::{CreateIssueRequest, JiraClient, UpdateIssueRequest};
 use crate::tools::{
-    format_children, format_comment, format_comments, format_issue, format_search_result,
-    format_update_result, AddCommentParams, GetChildrenParams, GetCommentsParams, GetIssueParams,
-    SearchIssuesParams, UpdateIssueParams,
+    format_children, format_comment, format_comments, format_create_result, format_issue,
+    format_search_result, format_update_result, AddCommentParams, CreateIssueParams,
+    GetChildrenParams, GetCommentsParams, GetIssueParams, SearchIssuesParams, UpdateIssueParams,
 };
 
 #[derive(Clone)]
@@ -27,6 +27,46 @@ impl JiraServer {
         Self {
             jira: Arc::new(jira),
             tool_router: Self::tool_router(),
+        }
+    }
+
+    #[tool(description = "Create a new Jira issue. Requires project key, summary, and issue type. Optionally supports description, priority, assignee, parent, labels, and due date.")]
+    async fn create_issue(
+        &self,
+        Parameters(params): Parameters<CreateIssueParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let mut request =
+            CreateIssueRequest::new(&params.project_key, &params.summary, &params.issue_type);
+
+        if let Some(description) = &params.description {
+            request = request.description(description);
+        }
+        if let Some(priority) = &params.priority {
+            request = request.priority(priority);
+        }
+        if let Some(assignee_id) = &params.assignee_account_id {
+            request = request.assignee(assignee_id);
+        }
+        if let Some(parent_key) = &params.parent_key {
+            request = request.parent(parent_key);
+        }
+        if let Some(labels) = &params.labels {
+            let label_refs: Vec<&str> = labels.iter().map(|s| s.as_str()).collect();
+            request = request.labels(label_refs);
+        }
+        if let Some(due_date) = &params.due_date {
+            request = request.due_date(due_date);
+        }
+
+        match self.jira.create_issue(request).await {
+            Ok(created) => {
+                let output = format_create_result(&created);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+                "Failed to create issue: {}",
+                e
+            ))])),
         }
     }
 

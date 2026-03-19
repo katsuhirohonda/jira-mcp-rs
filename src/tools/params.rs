@@ -51,6 +51,28 @@ pub struct GetChildrenParams {
 }
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
+pub struct CreateIssueParams {
+    /// The project key (e.g., 'PROJ')
+    pub project_key: String,
+    /// The issue summary/title
+    pub summary: String,
+    /// The issue type (e.g., 'Story', 'Bug', 'Task', 'Epic', 'Subtask')
+    pub issue_type: String,
+    /// Description of the issue (plain text)
+    pub description: Option<String>,
+    /// Priority name (e.g., 'High', 'Medium', 'Low')
+    pub priority: Option<String>,
+    /// Assignee's account ID
+    pub assignee_account_id: Option<String>,
+    /// Parent issue key (e.g., 'EPIC-123' for stories, or parent story for subtasks)
+    pub parent_key: Option<String>,
+    /// Labels to set on the issue
+    pub labels: Option<Vec<String>>,
+    /// Due date in YYYY-MM-DD format (e.g., '2025-01-31')
+    pub due_date: Option<String>,
+}
+
+#[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct GetCommentsParams {
     /// The issue key (e.g., 'PROJ-123')
     pub issue_key: String,
