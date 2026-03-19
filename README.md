@@ -4,6 +4,7 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 
 ## Features
 
+- **create_issue**: Create a new Jira issue
 - **search_issues**: Search for Jira issues using JQL (Jira Query Language)
 - **get_issue**: Get detailed information about a specific Jira issue
 - **get_children**: Get child issues (epic's stories or issue's subtasks)
@@ -50,6 +51,21 @@ Add to your MCP client configuration (e.g., `~/Library/Application Support/Claud
 ```
 
 ## Available Tools
+
+### create_issue
+
+Create a new Jira issue.
+
+**Parameters:**
+- `project_key` (string, required): The project key (e.g., `PROJ`)
+- `summary` (string, required): The issue summary/title
+- `issue_type` (string, required): The issue type (e.g., `Story`, `Bug`, `Task`, `Epic`, `Subtask`)
+- `description` (string, optional): Description of the issue (plain text)
+- `priority` (string, optional): Priority name (e.g., `High`, `Medium`, `Low`)
+- `assignee_account_id` (string, optional): Assignee's account ID
+- `parent_key` (string, optional): Parent issue key (e.g., `EPIC-123` for stories, or parent story for subtasks)
+- `labels` (array of strings, optional): Labels to set on the issue
+- `due_date` (string, optional): Due date in YYYY-MM-DD format (e.g., `2025-01-31`)
 
 ### search_issues
 
