@@ -172,6 +172,39 @@ impl JiraClient {
         Ok(result)
     }
 
+    /// Create a new Jira issue.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let request = CreateIssueRequest::new("PROJ", "Fix login bug", "Story")
+    ///     .description("Users cannot log in")
+    ///     .priority("High");
+    ///
+    /// let created = client.create_issue(request).await?;
+    /// println!("Created: {}", created.key);
+    /// ```
+    pub async fn create_issue(&self, request: CreateIssueRequest) -> Result<CreatedIssue> {
+        let url = format!("{}/rest/api/3/issue", self.base_url);
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", &self.auth_header)
+            .header("Content-Type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            anyhow::bail!("Jira API error ({}): {}", status, error_text);
+        }
+
+        let created = response.json::<CreatedIssue>().await?;
+        Ok(created)
+    }
+
     pub async fn add_comment(&self, issue_key: &str, comment: &str) -> Result<Comment> {
         let url = format!("{}/rest/api/3/issue/{}/comment", self.base_url, issue_key);
 
@@ -507,6 +540,83 @@ mod tests {
         );
 
         assert_eq!(client.base_url, "https://example.atlassian.net");
+    }
+
+    #[tokio::test]
+    async fn create_issue_returns_created_issue_with_key() {
+        let mock_server = MockServer::start().await;
+        let response_body = CreatedIssue {
+            id: "10200".to_string(),
+            key: "PROJ-200".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/10200".to_string(),
+        };
+
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/issue"))
+            .and(header(
+                "Authorization",
+                "Basic dGVzdEBleGFtcGxlLmNvbTp0ZXN0LXRva2Vu",
+            ))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&response_body))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+        let request = CreateIssueRequest::new("PROJ", "Fix login bug", "Story");
+
+        let result = client.create_issue(request).await.unwrap();
+
+        assert_eq!(result.id, "10200");
+        assert_eq!(result.key, "PROJ-200");
+    }
+
+    #[tokio::test]
+    async fn create_issue_with_optional_fields_succeeds() {
+        let mock_server = MockServer::start().await;
+        let response_body = CreatedIssue {
+            id: "10201".to_string(),
+            key: "PROJ-201".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/10201".to_string(),
+        };
+
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/issue"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&response_body))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+        let request = CreateIssueRequest::new("PROJ", "New task", "Task")
+            .description("Task description")
+            .priority("High")
+            .assignee("account-123")
+            .parent("EPIC-10")
+            .labels(vec!["backend", "urgent"])
+            .due_date("2025-12-31");
+
+        let result = client.create_issue(request).await.unwrap();
+
+        assert_eq!(result.key, "PROJ-201");
+    }
+
+    #[tokio::test]
+    async fn create_issue_returns_error_on_api_failure() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/rest/api/3/issue"))
+            .respond_with(ResponseTemplate::new(400).set_body_string("Bad Request"))
+            .mount(&mock_server)
+            .await;
+
+        let client = JiraClient::new(&mock_server.uri(), "test@example.com", "test-token");
+        let request = CreateIssueRequest::new("INVALID", "Test", "Story");
+
+        let result = client.create_issue(request).await;
+
+        assert!(result.is_err());
+        let error_message = result.unwrap_err().to_string();
+        assert!(error_message.contains("400"));
     }
 
     #[test]
