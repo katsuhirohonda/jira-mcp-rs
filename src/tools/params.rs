@@ -28,7 +28,7 @@ pub struct UpdateIssueParams {
     pub issue_key: String,
     /// New summary/title for the issue
     pub summary: Option<String>,
-    /// New description for the issue (plain text, will be converted to Atlassian Document Format)
+    /// New description for the issue. Supports Markdown (headings, bold, italic, bullet lists, inline code, code blocks). Automatically converted to Atlassian Document Format (ADF).
     pub description: Option<String>,
     /// Due date in YYYY-MM-DD format (e.g., '2025-01-31')
     pub due_date: Option<String>,
@@ -58,7 +58,7 @@ pub struct CreateIssueParams {
     pub summary: String,
     /// The issue type (e.g., 'Story', 'Bug', 'Task', 'Epic', 'Subtask')
     pub issue_type: String,
-    /// Description of the issue (plain text)
+    /// Description of the issue. Supports Markdown (headings, bold, italic, bullet lists, inline code, code blocks). Automatically converted to Atlassian Document Format (ADF).
     pub description: Option<String>,
     /// Priority name (e.g., 'High', 'Medium', 'Low')
     pub priority: Option<String>,

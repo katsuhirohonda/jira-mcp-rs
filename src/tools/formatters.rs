@@ -447,6 +447,22 @@ mod tests {
     }
 
     #[test]
+    fn format_create_result_shows_key_and_url() {
+        let issue = CreatedIssue {
+            id: "10200".to_string(),
+            key: "PROJ-200".to_string(),
+            self_url: "https://example.atlassian.net/rest/api/3/issue/10200".to_string(),
+        };
+
+        let output = format_create_result(&issue);
+
+        assert!(output.contains("Issue created successfully"));
+        assert!(output.contains("**Key:** PROJ-200"));
+        assert!(output.contains("**ID:** 10200"));
+        assert!(output.contains("**URL:** https://example.atlassian.net/rest/api/3/issue/10200"));
+    }
+
+    #[test]
     fn format_comment_shows_success_message_with_details() {
         let comment = Comment {
             id: "10100".to_string(),
