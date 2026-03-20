@@ -10,7 +10,22 @@ Rust implementation of an MCP (Model Context Protocol) server for Jira integrati
 - **get_children**: Get child issues (epic's stories or issue's subtasks)
 - **get_comments**: Get comments on a Jira issue
 - **add_comment**: Add a comment to a Jira issue
-- **update_issue**: Update issue fields (summary, due date, priority, assignee, parent/epic, labels)
+- **update_issue**: Update issue fields (summary, description, due date, priority, assignee, parent/epic, labels)
+
+## Markdown → ADF Conversion
+
+All `description` and `comment` fields support **Markdown syntax**, which is automatically converted to [Atlassian Document Format (ADF)](https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/) before being sent to the Jira API.
+
+Supported Markdown features:
+
+| Markdown | Rendered in Jira |
+|----------|-----------------|
+| `# Heading 1` / `## Heading 2` | Headings |
+| `**bold**` / `*italic*` | Bold / Italic |
+| `- item` / `1. item` | Bullet / Ordered lists |
+| `` `inline code` `` | Inline code |
+| ```` ```rust ... ``` ```` | Code blocks (with language) |
+| `[text](url)` | Links |
 
 ## Requirements
 
@@ -60,7 +75,7 @@ Create a new Jira issue.
 - `project_key` (string, required): The project key (e.g., `PROJ`)
 - `summary` (string, required): The issue summary/title
 - `issue_type` (string, required): The issue type (e.g., `Story`, `Bug`, `Task`, `Epic`, `Subtask`)
-- `description` (string, optional): Description of the issue (plain text)
+- `description` (string, optional): Description of the issue. Supports Markdown (headings, bold, italic, bullet lists, inline code, code blocks). Automatically converted to Atlassian Document Format (ADF).
 - `priority` (string, optional): Priority name (e.g., `High`, `Medium`, `Low`)
 - `assignee_account_id` (string, optional): Assignee's account ID
 - `parent_key` (string, optional): Parent issue key (e.g., `EPIC-123` for stories, or parent story for subtasks)
@@ -114,6 +129,7 @@ Update a Jira issue's fields.
 **Parameters:**
 - `issue_key` (string, required): The issue key (e.g., `PROJ-123`)
 - `summary` (string, optional): New summary/title for the issue
+- `description` (string, optional): New description for the issue. Supports Markdown (headings, bold, italic, bullet lists, inline code, code blocks). Automatically converted to Atlassian Document Format (ADF).
 - `due_date` (string, optional): Due date in YYYY-MM-DD format (e.g., `2025-01-31`)
 - `priority` (string, optional): Priority name (e.g., `High`, `Medium`, `Low`)
 - `assignee_account_id` (string, optional): Assignee's account ID
